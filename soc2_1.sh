@@ -47,25 +47,27 @@ for ip in $IPS; do
 
 	printf "%-16s %-10s %-10s %-10s\n" "$ip" "$ssh_fails" "$net_hits" "$risk"
 
+	#Dynamically assign MITRE technique based on behaviour
+	mitre=""
+	mitre="T1133"
+	if [[ "$ssh_fails" -ge "$SSH_THRESHOLD" ]]; then
+        	mitre="$mitre,T1110"
+	fi
+
+	if [[ "$net_hits" -ge "$NET_THRESHOLD" ]]; then
+        	mitre="$mitre, T1046"
+	fi
+
+	MITRE=${mitre#,}
+	echo "$MITRE" >> "$ALERT_FILE"
+
+
 	if [[ "$risk" != "LOW" ]]; then
-		echo "$(date) | IP=$ip | SSH_FAILS=$ssh_fails | NET_HITS=$net_hits | RISK=$risk"  >> "$ALERT_FILE"
+		echo "$(date) | IP=$ip | SSH_FAILS=$ssh_fails | NET_HITS=$net_hits | RISK=$risk | MITRE=$MITRE"  >> "$ALERT_FILE"
 
 	fi
 done
 
-
-#Dynamically assign MITRE technique based on behaviour
-mitre=""
-mitre="T1133"
-if [[ "$ssh_fails" -ge "$SSH_THRESHOLD" ]]; then
-        mitre="$mitre,T1110"
-fi
-
-if [[ "$net_hits" -ge "$NET_THRESHOLD" ]]; then
-        mitre="$mitre, T1046"
-
-MITRE=${mitre#,} 
-echo "$MITRE" >> "$ALERT_FILE"
 
 
 echo "----------------------------------------------"
