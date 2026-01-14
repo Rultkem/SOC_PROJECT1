@@ -24,7 +24,7 @@ echo "=============================================="
 echo "        SOC MINI DASHBOARD - BASH"
 echo "=============================================="
 #CSV header
-echo "IP_ADDRESS,SSH_FAILS,NET_HITS,RISK,T1133,T1110,T1046" > "$ALERT_FILE" 
+echo "IP_ADDRESS,COUNTRY,COUNTRY_CODE,SSH_FAILS,NET_HITS,RISK,T1133,T1110,T1046" > "$ALERT_FILE" 
 echo "----------------------------------------------"
 
 
@@ -53,6 +53,17 @@ for ip in $IPS; do
 	ssh_fails=$(grep "Failed password" "$AUTH_LOG" | grep "$ip" | wc -l)
 	net_hits=$(grep "IN=" "$NET_LOG" | grep "$ip" | wc -l)
 
+	#GEOip enrichment
+	GEO_INFO=$(geoiplookup "$ip" 2>/dev/null)
+	COUNTRY=$(echo "$GEO_INFO" | awk -F ': ' '{print $2}')
+	COUNTRY_CODE=$(echo "GEO_INFO" | awk -F ': ' '{print $1}')
+
+	#Handle missing GEOip
+	COUNTRY=${COUNTRY:-"UNKNOWN"}
+	COUNTRY_CODE=${COUNTRY_CODE:-"UN"}
+
+
+
 	risk="LOW"
 	t1133="FALSE"
 	t1110="FALSE"
@@ -80,7 +91,7 @@ for ip in $IPS; do
 
 	#if risk is not low append the result to CSV file
 	if [[ "$risk" != "LOW" ]]; then
-		echo "$ip,$ssh_fails,$net_hits,$risk,$t1133,$t1110,$t1046"  >> "$ALERT_FILE"
+		echo "$ip,$COUNTRY,$COUNTRY_CODE,$ssh_fails,$net_hits,$risk,$t1133,$t1110,$t1046"  >> "$ALERT_FILE"
 
 	fi
 done
