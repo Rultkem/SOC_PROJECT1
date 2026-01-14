@@ -20,6 +20,13 @@ NET_THRESHOLD=20
 #Local threat intel on this list (one ip per line)
 THREAT_FEED="/known_bad_ips.txt"
 
+
+#SOAR automation configuration (like enable or disable auto blocking)
+AUTO_BLOCK=true
+BLOCKED_LOG="./blocked_ips.log"
+NOTIFY_EMAIL="soc-team@example.com"
+
+
 > "$ALERT_FILE"
 
 echo "=============================================="
@@ -82,7 +89,7 @@ for ip in $IPS; do
 	fi
 
 	#Highest reputation score 100
-	((reputation_score=100)) && reputation_score=100
+	((reputation_score>100)) && reputation_score=100
 	
 
 	#Evaluate risk based on reputation score
@@ -120,6 +127,20 @@ for ip in $IPS; do
 		echo "$ip,$COUNTRY,$COUNTRY_CODE,$ssh_fails,$net_hits,$reputation_score,$risk,$t1133,$t1110,$t1046"  >> "$ALERT_FILE"
 
 	fi
+
+
+	#SOAR automation
+	if [[ "$risk"=="HIGH" ]]; then
+		if $AUTO_BLOCK; then
+			iptables -C INPUT -s "$ip" -j DROP 2>/dev/null || \
+			iptables -I INPUT -s "$ip" -j DROP
+			echo "$(date '+%Y-%m-%d %H:%M:%S'),$ip,HIGH" >> "$BLOCKED_LOG"
+		fi
+
+		echo -e "ALERT HIGH RISK IP DETECTED\nIP: $ip\nCountry: $COUNTRY ($COUNTRY_CODE)\nSSH fails: $ssh_fails\nNet hits: $net_hits\nScore: $reputation_score" | mail -s "SOC ALERT: HIGH RISK IP: $ip" "$NOTIFY_MAIL"
+	fi
+
+
 done
 
 
@@ -127,3 +148,4 @@ done
 echo "----------------------------------------------"
 echo "Analysis complete."
 echo "Alerts saved to: $ALERT_FILE"
+[[ "$AUTOBLOCK"==true ]] && echo "Blocked IPs logged to: $BLOCKED_LOG"
