@@ -26,10 +26,24 @@ echo "%-16s %-10s %-10s %-10s\n" "IP_ADDRESS" "SSH_FAILS" "NET_HITS" "RISK"
 echo "----------------------------------------------"
 
 
-#COLLECT UNIQUE IPs
+#Get the current time
+current_time=$(date "+%Y-%m-%d %H:%M:%S")
+one_hour_ago=$(date -d "1 hour ago" "+%Y-%m-%d %H:%M:%S")
+
+
+#COLLECT UNIQUE IPs from the last hour, format of date "Mar 14 03:14:15"
 IPS=$(grep -E "Failed password|IN=" "$AUTH_LOG" "$NET_LOG" 2>/dev/null \
-| awk '{for(i=1;i<=NF;i++) if ($i=="from") print $(i+1)}' \
-| sort -u)
+| awk -v one_hour_ago="$one_hour_ago" -v current_time="$current_time" '{
+	log_timestamp = substr($0, 1, 15)
+	log_date = substr($0, 1, 6)
+	log_time = substr($0, 8, 8)
+
+	formatted_timestamp = sprintf("%s %s, log_date, log_time")
+
+	if (formatted_timestamp >= one_hour_ago && formatted_timestamp <= current_time) {
+		for(i=1;i<=NF;i++) if ($i=="from") print$(i+1)
+	}
+}' | sort -u)
 
 
 #Analyze each ip
