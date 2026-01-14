@@ -12,17 +12,19 @@
 
 AUTH_LOG="/var/log/auth.log"
 NET_LOG="/var/log/kern.log"
-ALERT_FILE="./soc_alerts.txt"
+ALERT_FILE="./soc_alerts.csv"
 
 SSH_THRESHOLD=5
 NET_THRESHOLD=20
+
 
 > "$ALERT_FILE"
 
 echo "=============================================="
 echo "        SOC MINI DASHBOARD - BASH"
 echo "=============================================="
-echo "%-16s %-10s %-10s %-10s\n" "IP_ADDRESS" "SSH_FAILS" "NET_HITS" "RISK"
+#CSV header
+echo "IP_ADDRESS,SSH_FAILS,NET_HITS,RISK,MITRE" > "$ALERT_FILE" 
 echo "----------------------------------------------"
 
 
@@ -73,11 +75,11 @@ for ip in $IPS; do
 	fi
 
 	MITRE=${mitre#,}
-	echo "$MITRE" >> "$ALERT_FILE"
 
 
+	#if risk is not low append the result to CSV file
 	if [[ "$risk" != "LOW" ]]; then
-		echo "$(date) | IP=$ip | SSH_FAILS=$ssh_fails | NET_HITS=$net_hits | RISK=$risk | MITRE=$MITRE"  >> "$ALERT_FILE"
+		echo "$ip,$ssh_fails,$net_hits,$risk,$MITRE"  >> "$ALERT_FILE"
 
 	fi
 done
