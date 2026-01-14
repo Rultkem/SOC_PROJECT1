@@ -24,7 +24,7 @@ echo "=============================================="
 echo "        SOC MINI DASHBOARD - BASH"
 echo "=============================================="
 #CSV header
-echo "IP_ADDRESS,SSH_FAILS,NET_HITS,RISK,MITRE" > "$ALERT_FILE" 
+echo "IP_ADDRESS,SSH_FAILS,NET_HITS,RISK,T1133,T1110,T1046" > "$ALERT_FILE" 
 echo "----------------------------------------------"
 
 
@@ -54,6 +54,9 @@ for ip in $IPS; do
 	net_hits=$(grep "IN=" "$NET_LOG" | grep "$ip" | wc -l)
 
 	risk="LOW"
+	t1133="FALSE"
+	t1110="FALSE"
+	t1046="FALSE"
 
 	if [[ "$ssh_fails" -ge "SSH_THRESHOLD" && "$net_hits" -ge "$NET_THRESHOLD" ]]; then
 		risk="HIGH"
@@ -61,25 +64,23 @@ for ip in $IPS; do
 		risk="MEDIUM"
 	fi
 
-	printf "%-16s %-10s %-10s %-10s\n" "$ip" "$ssh_fails" "$net_hits" "$risk"
 
 	#Dynamically assign MITRE technique based on behaviour
-	mitre=""
-	mitre="T1133"
 	if [[ "$ssh_fails" -ge "$SSH_THRESHOLD" ]]; then
-        	mitre="$mitre,T1110"
+        	t1133="TRUE"
+		t1110="TRUE"
 	fi
 
 	if [[ "$net_hits" -ge "$NET_THRESHOLD" ]]; then
-        	mitre="$mitre, T1046"
+        	t1133="TRUE"
+		t1046="TRUE"
 	fi
 
-	MITRE=${mitre#,}
 
 
 	#if risk is not low append the result to CSV file
 	if [[ "$risk" != "LOW" ]]; then
-		echo "$ip,$ssh_fails,$net_hits,$risk,$MITRE"  >> "$ALERT_FILE"
+		echo "$ip,$ssh_fails,$net_hits,$risk,$t1133,$t1110,$t1046"  >> "$ALERT_FILE"
 
 	fi
 done
