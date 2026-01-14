@@ -17,6 +17,8 @@ ALERT_FILE="./soc_alerts.csv"
 SSH_THRESHOLD=5
 NET_THRESHOLD=20
 
+#Local threat intel on this list (one ip per line)
+THREAT_FEED="/known_bad_ips.txt"
 
 > "$ALERT_FILE"
 
@@ -24,7 +26,7 @@ echo "=============================================="
 echo "        SOC MINI DASHBOARD - BASH"
 echo "=============================================="
 #CSV header
-echo "IP_ADDRESS,COUNTRY,COUNTRY_CODE,SSH_FAILS,NET_HITS,RISK,T1133,T1110,T1046" > "$ALERT_FILE" 
+echo "IP_ADDRESS,COUNTRY,COUNTRY_CODE,SSH_FAILS,NET_HITS,REPUTATION_SCORE,RISK,T1133,T1110,T1046" > "$ALERT_FILE" 
 echo "----------------------------------------------"
 
 
@@ -64,16 +66,40 @@ for ip in $IPS; do
 
 
 
+	#Reputation score based on: behaviour, country, known threats 
+	reputation_score=0
+	((reputation_score+=ssh_fails*3 ))
+	((reputation_score+=net_hits*1 ))
+
+	case "$COUNTRY_CODE" in
+		RU|CN|IR|KP)
+			((reputation_score+=20))
+			;;
+	esac
+
+	if [[ -f "$THREAD_FEED" ]] && grep -q "$ip" "$THREAT_FEED"; then
+		((reputation_score+=40))
+	fi
+
+	#Highest reputation score 100
+	((reputation_score=100)) && reputation_score=100
+	
+
+	#Evaluate risk based on reputation score
 	risk="LOW"
+	if [[ "$reputation_score" -ge 60 ]]; then
+		risk="HIGH"
+	elif [[ "$reputation_score" -ge 30 ]]; then
+		risk="MEDIUM"
+	fi
+
+
+
+
+	#MITRE evalutation
 	t1133="FALSE"
 	t1110="FALSE"
 	t1046="FALSE"
-
-	if [[ "$ssh_fails" -ge "SSH_THRESHOLD" && "$net_hits" -ge "$NET_THRESHOLD" ]]; then
-		risk="HIGH"
-	elif [[ "$ssh_fails" -ge "SSH_THRESHOLD" || "$net_hits" -ge "$NET_THRESHOLD" ]]; then
-		risk="MEDIUM"
-	fi
 
 
 	#Dynamically assign MITRE technique based on behaviour
@@ -91,7 +117,7 @@ for ip in $IPS; do
 
 	#if risk is not low append the result to CSV file
 	if [[ "$risk" != "LOW" ]]; then
-		echo "$ip,$COUNTRY,$COUNTRY_CODE,$ssh_fails,$net_hits,$risk,$t1133,$t1110,$t1046"  >> "$ALERT_FILE"
+		echo "$ip,$COUNTRY,$COUNTRY_CODE,$ssh_fails,$net_hits,$reputation_score,$risk,$t1133,$t1110,$t1046"  >> "$ALERT_FILE"
 
 	fi
 done
